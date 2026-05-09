@@ -50,10 +50,10 @@ function onScanSuccess(decodedText){
         document.getElementById("result").innerText =
             data.message;
 
-        // 2秒後允許重新掃描
+        // 5秒後允許重新掃描
         setTimeout(() => {
             scanned = false;
-        }, 2000);
+        }, 5000);
     });
 }
 

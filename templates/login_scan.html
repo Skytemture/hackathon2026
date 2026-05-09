@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>登入</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+<h2 id="msg">掃描使用者</h2>
+
+<div id="reader"></div>
+
+<script>
+
+function onScanSuccess(text){
+
+    fetch("/login_user", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({code:text})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if(d.status==="success"){
+            location.href="/scan";
+        }else{
+            document.getElementById("msg").innerText = d.message;
+        }
+    });
+}
+
+let qr = new Html5Qrcode("reader");
+
+Html5Qrcode.getCameras().then(devices=>{
+    qr.start(devices[0].id,{fps:10,qrbox:250},onScanSuccess);
+});
+
+</script>
+
+</body>
+</html>

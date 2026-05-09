@@ -5,33 +5,27 @@
     <title>QR 掃描</title>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
-
-    <link rel="stylesheet"
-          href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
 <div class="container">
 
-    <h1>QR 掃描</h1>
+    <h1>QR 借還系統</h1>
 
-    <h2 id="current_user">
-        請先掃描使用者
-    </h2>
+    <!-- 👇 使用者登入 -->
+    <input type="text" id="login_input" placeholder="輸入電話或名字">
+    <button onclick="loginUser()">登入</button>
 
-    <h2 id="mode">
-        模式：未選擇
-    </h2>
+    <h3 id="user_status">未登入</h3>
 
-    <button onclick="setMode('borrow')">
-        借用
-    </button>
+    <br>
 
-    <button onclick="setMode('return')">
-        歸還
-    </button>
+    <!-- 模式 -->
+    <button onclick="setAction('borrow')">借出</button>
+    <button onclick="setAction('return')">歸還</button>
 
-    <br><br>
+    <h2 id="mode">目前模式：borrow</h2>
 
     <div id="reader"></div>
 
@@ -41,87 +35,93 @@
 
 <script>
 
-let scanning = false;
-let currentMode = null;
+let currentAction = "borrow";
+let isLogin = false;
+let userName = "";
 
-// =====================
-// 選模式
-// =====================
-function setMode(mode){
-
-    currentMode = mode;
-
-    document.getElementById("mode")
-        .innerText =
-        "模式：" +
-        (mode === "borrow" ? "借用" : "歸還");
+function setAction(action){
+    currentAction = action;
+    document.getElementById("mode").innerText =
+        "目前模式：" + action;
 }
 
-// =====================
-// 掃描成功
-// =====================
-function onScanSuccess(decodedText){
+// =========================
+// LOGIN
+// =========================
+function loginUser(){
 
-    if(scanning) return;
+    let input = document.getElementById("login_input").value;
 
-    scanning = true;
-
-    fetch("/scan_qr", {
+    fetch("/login_user", {
 
         method: "POST",
-
         headers: {
             "Content-Type": "application/json"
         },
-
         body: JSON.stringify({
-            container_id: decodedText,
-            action: currentMode
+            input: input   // phone or name
         })
     })
     .then(res => res.json())
     .then(data => {
 
-        document.getElementById("result")
-            .innerText =
-            data.message;
+        if(data.status === "success"){
 
-        // user 掃描成功
-        if(data.type === "user"){
+            isLogin = true;
+            userName = data.user_name;
 
-            document.getElementById(
-                "current_user"
-            ).innerText =
-                "目前使用者：" +
-                data.user_name;
+            document.getElementById("user_status").innerText =
+                "已登入：" + userName;
+
+        } else {
+            alert(data.message);
         }
-
-        setTimeout(() => {
-            scanning = false;
-        }, 1500);
     });
 }
 
-// =====================
-// 啟動相機
-// =====================
-let html5QrCode =
-    new Html5Qrcode("reader");
+// =========================
+// QR SCAN
+// =========================
+function onScanSuccess(decodedText){
+
+    if(!isLogin){
+        alert("請先登入");
+        return;
+    }
+
+    fetch("/scan_qr", {
+
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+
+            item_code: decodedText,
+            action: currentAction
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        document.getElementById("result").innerText =
+            data.message;
+    });
+}
+
+// =========================
+// CAMERA
+// =========================
+let html5QrCode = new Html5Qrcode("reader");
 
 Html5Qrcode.getCameras()
 .then(devices => {
 
-    if(devices.length){
+    if (devices.length){
 
         html5QrCode.start(
-
             devices[0].id,
-
-            {
-                fps: 10,
-                qrbox: 250
-            },
-
+            { fps: 10, qrbox: 250 },
             onScanSuccess
         );
     }
