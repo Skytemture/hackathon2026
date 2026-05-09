@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
 
-    <title>
-        新增餐具
-    </title>
+    <title>新增餐具</title>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
 
-    <link rel="stylesheet"
-          href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
@@ -18,19 +15,7 @@
 
     <h1>新增餐具</h1>
 
-    <select id="item_type">
-
-        <option value="餐盒">
-            餐盒
-        </option>
-
-        <option value="杯子">
-            杯子
-        </option>
-
-    </select>
-
-    <br><br>
+    <p>請掃描 QR Code（CUP / PLATE / LID）</p>
 
     <div id="reader"></div>
 
@@ -44,7 +29,6 @@ let scanned = false;
 
 function onScanSuccess(decodedText){
 
-    // 防止一直重複掃描
     if(scanned) return;
     scanned = true;
 
@@ -57,11 +41,7 @@ function onScanSuccess(decodedText){
         },
 
         body: JSON.stringify({
-
-            container_id: decodedText,
-
-            item_type:
-                document.getElementById("item_type").value
+            container_id: decodedText
         })
     })
     .then(res => res.json())
@@ -70,7 +50,7 @@ function onScanSuccess(decodedText){
         document.getElementById("result").innerText =
             data.message;
 
-        // 2秒後允許再次掃描
+        // 2秒後允許重新掃描
         setTimeout(() => {
             scanned = false;
         }, 2000);

@@ -2,10 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-
-    <title>
-        QR 掃描
-    </title>
+    <title>QR 掃描</title>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -18,23 +15,23 @@
 
     <h1>QR 掃描</h1>
 
-    <input type="text"
-           id="user_name"
-           placeholder="輸入使用者">
-
-    <br><br>
-
-    <button onclick="setAction('借出')">
-        借出模式
-    </button>
-
-    <button onclick="setAction('歸還')">
-        歸還模式
-    </button>
+    <h2 id="current_user">
+        請先掃描使用者
+    </h2>
 
     <h2 id="mode">
-        目前模式：借出
+        模式：未選擇
     </h2>
+
+    <button onclick="setMode('borrow')">
+        借用
+    </button>
+
+    <button onclick="setMode('return')">
+        歸還
+    </button>
+
+    <br><br>
 
     <div id="reader"></div>
 
@@ -44,19 +41,32 @@
 
 <script>
 
-let currentAction = "借出";
+let scanning = false;
+let currentMode = null;
 
-function setAction(action){
+// =====================
+// 選模式
+// =====================
+function setMode(mode){
 
-    currentAction = action;
+    currentMode = mode;
 
-    document.getElementById("mode").innerText =
-        "目前模式：" + action;
+    document.getElementById("mode")
+        .innerText =
+        "模式：" +
+        (mode === "borrow" ? "借用" : "歸還");
 }
 
+// =====================
+// 掃描成功
+// =====================
 function onScanSuccess(decodedText){
 
-    fetch("/add_record", {
+    if(scanning) return;
+
+    scanning = true;
+
+    fetch("/scan_qr", {
 
         method: "POST",
 
@@ -65,34 +75,47 @@ function onScanSuccess(decodedText){
         },
 
         body: JSON.stringify({
-
-            qr_code: decodedText,
-            action: currentAction,
-
-            user_name:
-                document.getElementById("user_name").value
+            container_id: decodedText,
+            action: currentMode
         })
     })
     .then(res => res.json())
     .then(data => {
 
-        document.getElementById("result").innerText =
+        document.getElementById("result")
+            .innerText =
             data.message;
+
+        // user 掃描成功
+        if(data.type === "user"){
+
+            document.getElementById(
+                "current_user"
+            ).innerText =
+                "目前使用者：" +
+                data.user_name;
+        }
+
+        setTimeout(() => {
+            scanning = false;
+        }, 1500);
     });
 }
 
-let html5QrCode = new Html5Qrcode("reader");
+// =====================
+// 啟動相機
+// =====================
+let html5QrCode =
+    new Html5Qrcode("reader");
 
 Html5Qrcode.getCameras()
 .then(devices => {
 
-    if (devices.length){
-
-        let cameraId = devices[0].id;
+    if(devices.length){
 
         html5QrCode.start(
 
-            cameraId,
+            devices[0].id,
 
             {
                 fps: 10,
@@ -103,6 +126,7 @@ Html5Qrcode.getCameras()
         );
     }
 });
+
 </script>
 
 </body>
