@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+
+    <title>
+        餐具管理系統
+    </title>
+
+    <link rel="stylesheet"
+          href="/static/style.css">
+</head>
+<body>
+
+<div class="container">
+
+    <h1>餐具管理系統</h1>
+
+    <!-- ===================== -->
+    <!-- 總覽 -->
+    <!-- ===================== -->
+    <div class="card">
+
+        <h2>統計總覽</h2>
+
+        <p>
+            餐具總數：{{ total_items }}
+        </p>
+
+    </div>
+
+    <!-- ===================== -->
+    <!-- 借出狀態 -->
+    <!-- ===================== -->
+    <div class="card">
+
+        <h2>目前借出</h2>
+
+        <p>
+            🍱 餐盒：{{ box_count }}
+        </p>
+
+        <p>
+            🥤 杯子：{{ cup_count }}
+        </p>
+
+    </div>
+
+    <!-- ===================== -->
+    <!-- 功能選單 -->
+    <!-- ===================== -->
+    <div class="card">
+
+        <h2>功能選單</h2>
+
+        <a href="/scan">
+            📷 前往掃描
+        </a>
+
+        <br><br>
+
+        <a href="/register_item">
+            ➕ 新增餐具
+        </a>
+
+        <br><br>
+
+        <a href="/records">
+            📋 查看歷史紀錄
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+</html>

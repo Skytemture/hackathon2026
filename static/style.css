@@ -1,0 +1,49 @@
+body{
+    font-family: Arial;
+    background: #f2f2f2;
+}
+
+.container{
+    width: 80%;
+    margin: auto;
+    margin-top: 30px;
+    text-align: center;
+}
+
+.card{
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+#reader{
+    width: 500px;
+    margin: auto;
+}
+
+table{
+    width: 100%;
+    background: white;
+    border-collapse: collapse;
+}
+
+th, td{
+    border: 1px solid #ccc;
+    padding: 10px;
+}
+
+th{
+    background: #333;
+    color: white;
+}
+
+button{
+    padding: 10px 20px;
+    margin: 10px;
+}
+
+a{
+    text-decoration: none;
+    color: blue;
+}

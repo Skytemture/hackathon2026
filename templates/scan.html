@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+
+    <title>
+        QR 掃描
+    </title>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <link rel="stylesheet"
+          href="/static/style.css">
+</head>
+<body>
+
+<div class="container">
+
+    <h1>QR 掃描</h1>
+
+    <input type="text"
+           id="user_name"
+           placeholder="輸入使用者">
+
+    <br><br>
+
+    <button onclick="setAction('借出')">
+        借出模式
+    </button>
+
+    <button onclick="setAction('歸還')">
+        歸還模式
+    </button>
+
+    <h2 id="mode">
+        目前模式：借出
+    </h2>
+
+    <div id="reader"></div>
+
+    <h2 id="result"></h2>
+
+</div>
+
+<script>
+
+let currentAction = "借出";
+
+function setAction(action){
+
+    currentAction = action;
+
+    document.getElementById("mode").innerText =
+        "目前模式：" + action;
+}
+
+function onScanSuccess(decodedText){
+
+    fetch("/add_record", {
+
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+
+            qr_code: decodedText,
+            action: currentAction,
+
+            user_name:
+                document.getElementById("user_name").value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        document.getElementById("result").innerText =
+            data.message;
+    });
+}
+
+let html5QrCode = new Html5Qrcode("reader");
+
+Html5Qrcode.getCameras()
+.then(devices => {
+
+    if (devices.length){
+
+        let cameraId = devices[0].id;
+
+        html5QrCode.start(
+
+            cameraId,
+
+            {
+                fps: 10,
+                qrbox: 250
+            },
+
+            onScanSuccess
+        );
+    }
+});
+</script>
+
+</body>
+</html>
