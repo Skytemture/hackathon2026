@@ -1,45 +1,34 @@
 from flask import Flask, render_template, request, jsonify
-import sqlite3
+from pymongo import MongoClient
+from datetime import datetime
 
 app = Flask(__name__)
 
 # ====================================
-# 初始化資料庫
+# MongoDB 連線
 # ====================================
-def init_db():
 
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
+MONGO_URI = "mongodb+srv://hackathon0509_user:1eYLNz7Og9UYlaLl@cluster0.jedeu7j.mongodb.net/?appName=Cluster0"
 
-    # =========================
-    # 餐具資料表
-    # =========================
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        qr_code TEXT UNIQUE,
-        item_type TEXT
-    )
-    """)
+try:
+    client = MongoClient(MONGO_URI)
 
-    # =========================
-    # 借還紀錄表
-    # =========================
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        qr_code TEXT,
-        item_type TEXT,
-        action TEXT,
-        user_name TEXT,
-        create_time DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
+    # 測試連線
+    client.admin.command("ping")
+    print("✅ MongoDB 連線成功")
 
-    conn.commit()
-    conn.close()
+    # Database
+    db = client["hackathon"]
 
-init_db()
+    # Collections
+    users_col = db["users"]
+    containers_col = db["containers"]
+
+except Exception as e:
+    print("❌ MongoDB 連線失敗")
+    print(e)
+    exit()
+
 
 # ====================================
 # 首頁
@@ -47,76 +36,31 @@ init_db()
 @app.route("/")
 def index():
 
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
+    total_items = containers_col.count_documents({})
 
-    # =========================
-    # 餐盒借出
-    # =========================
-    cursor.execute("""
-    SELECT COUNT(*)
-    FROM records
-    WHERE item_type='餐盒'
-    AND action='借出'
-    """)
-    box_borrow = cursor.fetchone()[0]
+    cup_count = containers_col.count_documents({
+        "item_type": "cup",
+        "status": "C001"
+    })
 
-    # 餐盒歸還
-    cursor.execute("""
-    SELECT COUNT(*)
-    FROM records
-    WHERE item_type='餐盒'
-    AND action='歸還'
-    """)
-    box_return = cursor.fetchone()[0]
+    plate_count = containers_col.count_documents({
+        "item_type": "plate",
+        "status": "C001"
+    })
 
-    # 杯子借出
-    cursor.execute("""
-    SELECT COUNT(*)
-    FROM records
-    WHERE item_type='杯子'
-    AND action='借出'
-    """)
-    cup_borrow = cursor.fetchone()[0]
-
-    # 杯子歸還
-    cursor.execute("""
-    SELECT COUNT(*)
-    FROM records
-    WHERE item_type='杯子'
-    AND action='歸還'
-    """)
-    cup_return = cursor.fetchone()[0]
-
-    # =========================
-    # 已註冊總餐具數
-    # =========================
-    cursor.execute("""
-    SELECT COUNT(*)
-    FROM items
-    """)
-    total_items = cursor.fetchone()[0]
-
-    conn.close()
-
-    # =========================
-    # 計算目前借出數
-    # =========================
-    box_count = box_borrow - box_return
-    cup_count = cup_borrow - cup_return
-
-    if box_count < 0:
-        box_count = 0
-
-    if cup_count < 0:
-        cup_count = 0
+    borrowed_count = containers_col.count_documents({
+        "user_id": {"$ne": None}
+    })
 
     return render_template(
         "index.html",
-        box_count=box_count,
         cup_count=cup_count,
+        plate_count=plate_count,
+        borrowed_count=borrowed_count,
         total_items=total_items
     )
+
+
 # ====================================
 # 掃描頁
 # ====================================
@@ -131,134 +75,262 @@ def scan():
 def register_item():
     return render_template("register_item.html")
 
+
 # ====================================
 # 新增餐具 API
 # ====================================
 @app.route("/add_item", methods=["POST"])
 def add_item():
 
-    data = request.json
-
-    qr_code = data["qr_code"]
-    item_type = data["item_type"]
-
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-
     try:
+        data = request.json
+        item_type = data.get("item_type")
 
-        cursor.execute("""
-        INSERT INTO items
-        (qr_code, item_type)
-        VALUES (?, ?)
-        """, (
-            qr_code,
-            item_type
-        ))
+        if not item_type:
+            return jsonify({
+                "status": "error",
+                "message": "資料不完整"
+            })
 
-        conn.commit()
+        # =========================
+        # 找出所有 container id
+        # =========================
+        all_items = list(containers_col.find({}, {"_id": 0, "id": 1}))
 
-        result = {
-            "status": "success",
-            "message": "新增成功"
-        }
+        max_num = 0
 
-    except:
+        for item in all_items:
+            cid = item.get("id", "")
 
-        result = {
-            "status": "error",
-            "message": "QRCode 已存在"
-        }
+            # C01 → 1
+            if cid.startswith("C"):
+                try:
+                    num = int(cid[1:])
+                    if num > max_num:
+                        max_num = num
+                except:
+                    pass
 
-    conn.close()
+        # =========================
+        # 新 id
+        # =========================
+        new_id = f"C{str(max_num + 1).zfill(2)}"
 
-    return jsonify(result)
+        # =========================
+        # item type mapping
+        # =========================
+        if item_type == "杯子":
+            item_type = "cup"
+        elif item_type == "餐盒":
+            item_type = "plate"
 
-# ====================================
-# 新增借還紀錄 API
-# ====================================
-@app.route("/add_record", methods=["POST"])
-def add_record():
-
-    data = request.json
-
-    qr_code = data["qr_code"]
-    action = data["action"]
-    user_name = data["user_name"]
-
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-
-    # =========================
-    # 查詢餐具種類
-    # =========================
-    cursor.execute("""
-    SELECT item_type
-    FROM items
-    WHERE qr_code=?
-    """, (qr_code,))
-
-    item = cursor.fetchone()
-
-    if item:
-        item_type = item[0]
-
-    else:
-        conn.close()
-
-        return jsonify({
-            "status": "error",
-            "message": "此 QRCode 尚未註冊"
+        # =========================
+        # insert
+        # =========================
+        containers_col.insert_one({
+            "id": new_id,
+            "user_id": None,
+            "item_type": item_type,
+            "status": "C001",
+            "updated_at": datetime.now().isoformat()
         })
 
-    # =========================
-    # 新增紀錄
-    # =========================
-    cursor.execute("""
-    INSERT INTO records
-    (qr_code, item_type, action, user_name)
-    VALUES (?, ?, ?, ?)
-    """, (
-        qr_code,
-        item_type,
-        action,
-        user_name
-    ))
+        return jsonify({
+            "status": "success",
+            "message": f"{new_id} 新增成功"
+        })
 
-    conn.commit()
-    conn.close()
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        })
+# ====================================
+# 借出 / 歸還 API
+# ====================================
+@app.route("/scan_qr", methods=["POST"])
+def scan_qr():
 
-    return jsonify({
-        "status": "success",
-        "message": "紀錄成功"
-    })
+    try:
+        data = request.json
+
+        container_id = data.get("container_id")
+        user_id = data.get("user_id")
+
+        if not container_id:
+            return jsonify({
+                "status": "error",
+                "message": "缺少 container_id"
+            })
+
+        container = containers_col.find_one({
+            "id": container_id
+        })
+
+        if not container:
+            return jsonify({
+                "status": "error",
+                "message": "找不到餐具"
+            })
+
+        # ==========================
+        # 借出
+        # ==========================
+        if container["user_id"] is None:
+
+            if not user_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "請提供 user_id"
+                })
+
+            user = users_col.find_one({
+                "id": user_id
+            })
+
+            if not user:
+                return jsonify({
+                    "status": "error",
+                    "message": "使用者不存在"
+                })
+
+            containers_col.update_one(
+                {"id": container_id},
+                {
+                    "$set": {
+                        "user_id": user_id,
+                        "status": "R001",
+                        "updated_at": datetime.now().isoformat()
+                    }
+                }
+            )
+
+            return jsonify({
+                "status": "success",
+                "message": f"{container_id} 借出成功",
+                "action": "borrow"
+            })
+
+        # ==========================
+        # 歸還
+        # ==========================
+        else:
+
+            containers_col.update_one(
+                {"id": container_id},
+                {
+                    "$set": {
+                        "user_id": None,
+                        "status": "C001",
+                        "updated_at": datetime.now().isoformat()
+                    }
+                }
+            )
+
+            return jsonify({
+                "status": "success",
+                "message": f"{container_id} 歸還成功",
+                "action": "return"
+            })
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        })
+
 
 # ====================================
-# 歷史紀錄頁
+# 查看所有餐具
 # ====================================
-@app.route("/records")
-def records():
+@app.route("/containers")
+def containers():
 
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    SELECT *
-    FROM records
-    ORDER BY id DESC
-    """)
-
-    data = cursor.fetchall()
-
-    conn.close()
+    data = list(
+        containers_col.find(
+            {},
+            {"_id": 0}
+        )
+    )
 
     return render_template(
-        "records.html",
-        records=data
+        "containers.html",
+        containers=data
     )
+
+
+# ====================================
+# 查看所有使用者
+# ====================================
+@app.route("/users")
+def users():
+
+    data = list(
+        users_col.find(
+            {},
+            {"_id": 0}
+        )
+    )
+
+    return render_template(
+        "users.html",
+        users=data
+    )
+
+
+# ====================================
+# API 查看餐具
+# ====================================
+@app.route("/api/containers")
+def api_containers():
+
+    data = list(
+        containers_col.find(
+            {},
+            {"_id": 0}
+        )
+    )
+
+    return jsonify(data)
+
+
+# ====================================
+# API 查看使用者
+# ====================================
+@app.route("/api/users")
+def api_users():
+
+    data = list(
+        users_col.find(
+            {},
+            {"_id": 0}
+        )
+    )
+
+    return jsonify(data)
+
+
+# ====================================
+# 健康檢查
+# ====================================
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "running",
+        "database": "hackathon",
+        "collections": [
+            "users",
+            "containers"
+        ]
+    })
+
 
 # ====================================
 # 啟動 Flask
 # ====================================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(
+        debug=True,
+        host="0.0.0.0",
+        port=5000
+    )

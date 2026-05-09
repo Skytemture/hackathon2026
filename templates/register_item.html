@@ -40,7 +40,13 @@
 
 <script>
 
+let scanned = false;
+
 function onScanSuccess(decodedText){
+
+    // 防止一直重複掃描
+    if(scanned) return;
+    scanned = true;
 
     fetch("/add_item", {
 
@@ -52,7 +58,7 @@ function onScanSuccess(decodedText){
 
         body: JSON.stringify({
 
-            qr_code: decodedText,
+            container_id: decodedText,
 
             item_type:
                 document.getElementById("item_type").value
@@ -63,6 +69,11 @@ function onScanSuccess(decodedText){
 
         document.getElementById("result").innerText =
             data.message;
+
+        // 2秒後允許再次掃描
+        setTimeout(() => {
+            scanned = false;
+        }, 2000);
     });
 }
 
@@ -88,6 +99,7 @@ Html5Qrcode.getCameras()
         );
     }
 });
+
 </script>
 
 </body>

@@ -1,0 +1,28 @@
+循環餐具的可利用的商業模式
+
+我現在有
+user
+user_id
+cup 
+plate
+borroe_cup
+borrow_plate
+這幾格資料
+我可以如何整理或命名在DB的統一一個table會比較好?
+
+DB
+
+containers
+id 3位元
+status : 例如R001、D001、C001 3位元
+item cup/plate
+user_id
+
+user
+id 3位元
+name vacter(30)
+
+mongodb+srv://hackathon0509_user:1eYLNz7Og9UYlaLl@cluster0.jedeu7j.mongodb.net/?appName=Cluster0
+
+hackathon0509_user
+1eYLNz7Og9UYlaLl
